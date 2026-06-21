@@ -66,31 +66,7 @@
       border: 1px solid #333;
     }
 
-    .search-box {
-      margin-left: auto;
-      position: relative;
-    }
-    .search-box input {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      color: #e8e8e8;
-      padding: 6px 12px 6px 32px;
-      border-radius: 6px;
-      font-size: 13px;
-      width: 220px;
-      outline: none;
-    }
-    .search-box input:focus { border-color: #4f7fff; }
-    .search-box .icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #555;
-      font-size: 13px;
-    }
-
-    .drop-zone {
+.drop-zone {
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -296,11 +272,7 @@
     <button class="btn btn-ghost" id="btn-load-new">重新加载文件</button>
     <button class="btn btn-ghost" id="btn-reset-all">撤销所有修改</button>
     <span id="modified-count" class="meta"></span>
-    <div class="search-box">
-      <span class="icon">🔍</span>
-      <input type="text" id="search-input" placeholder="搜索字幕..." />
-    </div>
-    <button class="btn btn-ghost" id="btn-export-srt">导出 SRT</button>
+<button class="btn btn-ghost" id="btn-export-srt">导出 SRT</button>
     <button class="btn btn-ghost" id="btn-import-srt">导入 SRT</button>
     <input type="file" id="srt-input" accept=".srt" />
     <button class="btn btn-success" id="btn-export">导出修改后的文件</button>
@@ -309,7 +281,6 @@
   <div class="stats-bar">
     <span>共 <b id="stat-total">0</b> 条字幕</span>
     <span>时长 <b id="stat-duration">-</b></span>
-    <span id="stat-search" style="display:none">搜索结果 <b id="stat-search-count">0</b> 条</span>
   </div>
 
   <div class="table-wrap">
@@ -403,16 +374,11 @@ function parseCaption() {
 }
 
 // ─── render ───────────────────────────────────────────────────────────────────
-function renderTable(filter = '') {
+function renderTable() {
   const tbody = document.getElementById('caption-tbody');
   tbody.innerHTML = '';
-  const q = filter.trim().toLowerCase();
-  let shown = 0;
 
   captions.forEach(c => {
-    const match = !q || c.text.toLowerCase().includes(q) || c.originalText.toLowerCase().includes(q);
-    if (!match) return;
-    shown++;
 
     const tr = document.createElement('tr');
     if (c.text !== c.originalText) tr.classList.add('modified');
@@ -438,8 +404,6 @@ function renderTable(filter = '') {
     tbody.appendChild(tr);
   });
 
-  document.getElementById('stat-search').style.display = q ? '' : 'none';
-  document.getElementById('stat-search-count').textContent = shown;
   updateModifiedCount();
 }
 
@@ -666,7 +630,7 @@ document.getElementById('btn-load-new').addEventListener('click', () => {
 
 document.getElementById('btn-reset-all').addEventListener('click', () => {
   captions.forEach(c => { c.text = applyParticles(c.originalText); });
-  renderTable(document.getElementById('search-input').value);
+  renderTable();
   showToast('已撤销所有修改', '#4f7fff');
 });
 
@@ -680,10 +644,6 @@ document.getElementById('btn-import-srt').addEventListener('click', () => {
 });
 document.getElementById('srt-input').addEventListener('change', e => {
   if (e.target.files[0]) importSrt(e.target.files[0]);
-});
-
-document.getElementById('search-input').addEventListener('input', e => {
-  renderTable(e.target.value);
 });
 
 // particle checkboxes
