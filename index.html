@@ -300,6 +300,9 @@
       <span class="icon">🔍</span>
       <input type="text" id="search-input" placeholder="搜索字幕..." />
     </div>
+    <button class="btn btn-ghost" id="btn-export-srt">导出 SRT</button>
+    <button class="btn btn-ghost" id="btn-import-srt">导入 SRT</button>
+    <input type="file" id="srt-input" accept=".srt" />
     <button class="btn btn-success" id="btn-export">导出修改后的文件</button>
   </div>
 
@@ -511,6 +514,75 @@ function exportFile() {
   showToast('文件已导出');
 }
 
+// ─── srt ─────────────────────────────────────────────────────────────────────
+function msToSrtTime(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const ms2 = ms % 1000;
+  return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')},${String(ms2).padStart(3,'0')}`;
+}
+
+function exportSrt() {
+  if (!captions.length) return;
+  const lines = [];
+  captions.forEach((c, i) => {
+    lines.push(String(i + 1));
+    lines.push(`${msToSrtTime(c.inPoint)} --> ${msToSrtTime(c.outPoint)}`);
+    lines.push(c.text);
+    lines.push('');
+  });
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const dot = fileName.lastIndexOf('.');
+  a.download = (dot >= 0 ? fileName.slice(0, dot) : fileName) + '.srt';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('SRT 已导出');
+}
+
+function importSrt(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const blocks = e.target.result.trim().split(/\n\s*\n/);
+      let matched = 0, skipped = 0;
+      blocks.forEach(block => {
+        const lines = block.trim().split('\n');
+        if (lines.length < 3) return;
+        const idx = parseInt(lines[0].trim(), 10);
+        if (isNaN(idx) || idx < 1 || idx > captions.length) { skipped++; return; }
+        // lines[1] is timecode — ignored (we only update text)
+        const text = lines.slice(2).join('\n').trim();
+        const c = captions[idx - 1];
+        if (c.text === text) return;
+        c.text = text;
+        // sync DOM if visible
+        if (c.row) {
+          const ta = c.row.querySelector('textarea');
+          if (ta) {
+            ta.value = text;
+            autoResize(ta);
+            const isDirty = text !== c.originalText;
+            ta.classList.toggle('dirty', isDirty);
+            c.row.classList.toggle('modified', isDirty);
+            const revert = c.row.querySelector('.btn-revert');
+            if (revert) revert.hidden = !isDirty;
+          }
+        }
+        matched++;
+      });
+      updateModifiedCount();
+      showToast(`已导入 ${matched} 条字幕${skipped ? `，${skipped} 条序号超范围已跳过` : ''}`);
+    } catch(err) {
+      showToast('SRT 解析失败：' + err.message, '#f87171');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
 // ─── particle removal ────────────────────────────────────────────────────────
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -599,6 +671,16 @@ document.getElementById('btn-reset-all').addEventListener('click', () => {
 });
 
 document.getElementById('btn-export').addEventListener('click', exportFile);
+
+document.getElementById('btn-export-srt').addEventListener('click', exportSrt);
+
+document.getElementById('btn-import-srt').addEventListener('click', () => {
+  document.getElementById('srt-input').value = '';
+  document.getElementById('srt-input').click();
+});
+document.getElementById('srt-input').addEventListener('change', e => {
+  if (e.target.files[0]) importSrt(e.target.files[0]);
+});
 
 document.getElementById('search-input').addEventListener('input', e => {
   renderTable(e.target.value);
