@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bcut 字幕编辑器</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid #222;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: #141414;
+    }
+
+    header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    header .meta {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .toolbar {
+      padding: 12px 24px;
+      background: #141414;
+      border-bottom: 1px solid #222;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      padding: 7px 16px;
+      border-radius: 6px;
+      border: none;
+      font-size: 13px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .btn-primary { background: #4f7fff; color: #fff; }
+    .btn-success { background: #22c55e; color: #fff; }
+    .btn-ghost {
+      background: transparent;
+      color: #aaa;
+      border: 1px solid #333;
+    }
+
+    .search-box {
+      margin-left: auto;
+      position: relative;
+    }
+    .search-box input {
+      background: #1e1e1e;
+      border: 1px solid #333;
+      color: #e8e8e8;
+      padding: 6px 12px 6px 32px;
+      border-radius: 6px;
+      font-size: 13px;
+      width: 220px;
+      outline: none;
+    }
+    .search-box input:focus { border-color: #4f7fff; }
+    .search-box .icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #555;
+      font-size: 13px;
+    }
+
+    .drop-zone {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .drop-zone:hover { background: #161616; }
+    .drop-zone.dragover { background: #1a2340; }
+
+    .drop-icon { font-size: 48px; opacity: 0.3; }
+    .drop-title { font-size: 18px; color: #aaa; }
+    .drop-sub { font-size: 13px; color: #555; }
+
+    .content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .stats-bar {
+      padding: 8px 24px;
+      background: #141414;
+      border-bottom: 1px solid #1a1a1a;
+      font-size: 12px;
+      color: #555;
+      display: flex;
+      gap: 16px;
+    }
+    .stats-bar span { color: #888; }
+    .stats-bar b { color: #bbb; }
+
+    .table-wrap {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #1a1a1a;
+      padding: 10px 16px;
+      text-align: left;
+      font-weight: 500;
+      color: #666;
+      border-bottom: 1px solid #222;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid #1a1a1a;
+      transition: background 0.1s;
+    }
+    tbody tr:hover { background: #161616; }
+    tbody tr.modified { background: #1a1f0f; }
+    tbody tr.modified:hover { background: #1d2210; }
+
+    td {
+      padding: 8px 16px;
+      vertical-align: middle;
+    }
+
+    .td-index { color: #444; width: 48px; text-align: right; }
+    .td-time { color: #4f7fff; font-size: 12px; font-family: monospace; white-space: nowrap; width: 140px; }
+    .td-duration { color: #555; font-size: 12px; width: 70px; }
+
+    .caption-input {
+      width: 100%;
+      background: transparent;
+      border: 1px solid transparent;
+      color: #e8e8e8;
+      font-size: 13px;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-family: inherit;
+      resize: none;
+      line-height: 1.5;
+      overflow: hidden;
+      min-height: 28px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .caption-input:hover {
+      border-color: #333;
+      background: #1e1e1e;
+    }
+    .caption-input:focus {
+      outline: none;
+      border-color: #4f7fff;
+      background: #1a1f2e;
+    }
+    .caption-input.dirty {
+      color: #a8e063;
+    }
+
+    .td-actions { width: 60px; }
+    .btn-revert {
+      background: transparent;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .btn-revert:hover { color: #f87171; }
+    .btn-revert[hidden] { visibility: hidden; }
+
+    .highlight { background: #ff0 !important; color: #000 !important; border-radius: 2px; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #22c55e;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.2s, transform 0.2s;
+      z-index: 100;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+
+    input[type="file"] { display: none; }
+
+    /* ── particle filter panel ── */
+    .particle-bar {
+      padding: 10px 24px;
+      background: #141414;
+      border-bottom: 1px solid #222;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .particle-bar label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 13px;
+      cursor: pointer;
+      user-select: none;
+      color: #aaa;
+      padding: 4px 10px;
+      border-radius: 5px;
+      border: 1px solid #2a2a2a;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .particle-bar label:hover { background: #1e1e1e; border-color: #3a3a3a; }
+    .particle-bar label.checked { background: #1a2810; border-color: #4a7a20; color: #a8e063; }
+    .particle-bar label.master { border-color: #333; color: #ccc; font-weight: 500; }
+    .particle-bar label.master.checked { background: #1a2810; border-color: #4a7a20; color: #a8e063; }
+    .particle-bar input[type="checkbox"] { accent-color: #a8e063; width: 13px; height: 13px; }
+    .particle-sep { width: 1px; height: 20px; background: #2a2a2a; margin: 0 4px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Bcut 字幕编辑器</h1>
+  <span class="meta" id="file-info">未加载文件</span>
+</header>
+
+<div id="drop-zone" class="drop-zone">
+  <div class="drop-icon">📂</div>
+  <div class="drop-title">拖拽 .bjson 文件到此处</div>
+  <div class="drop-sub">或点击选择文件</div>
+  <input type="file" id="file-input" accept=".bjson,.json" />
+</div>
+
+<div id="app" class="content" style="display:none">
+  <div class="particle-bar">
+    <label class="master" id="lbl-master">
+      <input type="checkbox" id="chk-master" />
+      移除语气词
+    </label>
+    <div class="particle-sep"></div>
+    <label id="lbl-呢"><input type="checkbox" class="chk-particle" data-p="呢" />呢</label>
+    <label id="lbl-啊"><input type="checkbox" class="chk-particle" data-p="啊" />啊</label>
+    <label id="lbl-嗯"><input type="checkbox" class="chk-particle" data-p="嗯" />嗯</label>
+    <label id="lbl-呃"><input type="checkbox" class="chk-particle" data-p="呃" />呃</label>
+    <label id="lbl-哎"><input type="checkbox" class="chk-particle" data-p="哎" />哎</label>
+    <label id="lbl-唉"><input type="checkbox" class="chk-particle" data-p="唉" />唉</label>
+    <label id="lbl-哦"><input type="checkbox" class="chk-particle" data-p="哦" />哦</label>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-ghost" id="btn-load-new">重新加载文件</button>
+    <button class="btn btn-ghost" id="btn-reset-all">撤销所有修改</button>
+    <span id="modified-count" class="meta"></span>
+    <div class="search-box">
+      <span class="icon">🔍</span>
+      <input type="text" id="search-input" placeholder="搜索字幕..." />
+    </div>
+    <button class="btn btn-success" id="btn-export">导出修改后的文件</button>
+  </div>
+
+  <div class="stats-bar">
+    <span>共 <b id="stat-total">0</b> 条字幕</span>
+    <span>时长 <b id="stat-duration">-</b></span>
+    <span id="stat-search" style="display:none">搜索结果 <b id="stat-search-count">0</b> 条</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th class="td-index">#</th>
+          <th class="td-time">时间</th>
+          <th class="td-duration">时长</th>
+          <th>字幕文本</th>
+          <th class="td-actions"></th>
+        </tr>
+      </thead>
+      <tbody id="caption-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── state ───────────────────────────────────────────────────────────────────
+let originalJson = null;
+let rawText = null;
+let captions = [];
+let fileName = '';
+
+const PARTICLES = ['呢','啊','嗯','呃','哎','唉','哦'];
+// which particles are currently checked
+const activeParticles = new Set();
+
+// ─── util ─────────────────────────────────────────────────────────────────────
+function msToTimecode(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const ms2 = ms % 1000;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms2).padStart(3,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}.${String(ms2).padStart(3,'0')}`;
+}
+
+function autoResize(ta) {
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+}
+
+function showToast(msg, color = '#22c55e') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = color;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ─── load ─────────────────────────────────────────────────────────────────────
+function loadFile(file) {
+  if (!file) return;
+  fileName = file.name;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      rawText = e.target.result;
+      originalJson = JSON.parse(rawText);
+      parseCaption();
+      renderTable();
+      document.getElementById('drop-zone').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      document.getElementById('file-info').textContent = file.name + '  ·  ' + (file.size / 1024).toFixed(1) + ' KB';
+    } catch(err) {
+      showToast('文件解析失败：' + err.message, '#f87171');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+}
+
+function parseCaption() {
+  const tracks = originalJson?.timelineWidget?.timeline?.captionTracks ?? [];
+  const raw = [];
+  tracks.forEach((track, ti) => {
+    (track.captions ?? []).forEach((c, ci) => {
+      raw.push({ trackIndex: ti, captionIndex: ci, inPoint: c.inPoint, outPoint: c.outPoint, text: c.captionText, originalText: c.captionText });
+    });
+  });
+  raw.sort((a, b) => a.inPoint - b.inPoint);
+  captions = raw.map((c, i) => ({ ...c, index: i }));
+
+  // stats
+  const last = captions.reduce((m, c) => Math.max(m, c.outPoint), 0);
+  document.getElementById('stat-total').textContent = captions.length;
+  document.getElementById('stat-duration').textContent = msToTimecode(last);
+}
+
+// ─── render ───────────────────────────────────────────────────────────────────
+function renderTable(filter = '') {
+  const tbody = document.getElementById('caption-tbody');
+  tbody.innerHTML = '';
+  const q = filter.trim().toLowerCase();
+  let shown = 0;
+
+  captions.forEach(c => {
+    const match = !q || c.text.toLowerCase().includes(q) || c.originalText.toLowerCase().includes(q);
+    if (!match) return;
+    shown++;
+
+    const tr = document.createElement('tr');
+    if (c.text !== c.originalText) tr.classList.add('modified');
+    c.row = tr;
+
+    const isDirty = c.text !== c.originalText;
+
+    tr.innerHTML = `
+      <td class="td-index">${c.index + 1}</td>
+      <td class="td-time">${msToTimecode(c.inPoint)}</td>
+      <td class="td-duration">${((c.outPoint - c.inPoint)/1000).toFixed(2)}s</td>
+      <td><textarea class="caption-input${isDirty ? ' dirty' : ''}" rows="1" data-idx="${c.index}">${escapeHtml(c.text)}</textarea></td>
+      <td class="td-actions"><button class="btn-revert" data-idx="${c.index}" title="撤销此条" ${isDirty ? '' : 'hidden'}>↩</button></td>
+    `;
+
+    const ta = tr.querySelector('textarea');
+    autoResize(ta);
+    ta.addEventListener('input', onCaptionInput);
+
+    const revert = tr.querySelector('.btn-revert');
+    revert.addEventListener('click', onRevert);
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('stat-search').style.display = q ? '' : 'none';
+  document.getElementById('stat-search-count').textContent = shown;
+  updateModifiedCount();
+}
+
+function escapeHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── events ───────────────────────────────────────────────────────────────────
+function onCaptionInput(e) {
+  const ta = e.target;
+  const idx = +ta.dataset.idx;
+  const c = captions[idx];
+  c.text = ta.value;
+  autoResize(ta);
+
+  const isDirty = c.text !== c.originalText;
+  ta.classList.toggle('dirty', isDirty);
+  const tr = ta.closest('tr');
+  tr.classList.toggle('modified', isDirty);
+  const revert = tr.querySelector('.btn-revert');
+  revert.hidden = !isDirty;
+  updateModifiedCount();
+}
+
+function onRevert(e) {
+  const idx = +e.target.dataset.idx;
+  const c = captions[idx];
+  c.text = applyParticles(c.originalText);
+  const ta = c.row.querySelector('textarea');
+  ta.value = c.text;
+  autoResize(ta);
+  const isDirty = c.text !== c.originalText;
+  ta.classList.toggle('dirty', isDirty);
+  c.row.classList.toggle('modified', isDirty);
+  e.target.hidden = !isDirty;
+  updateModifiedCount();
+}
+
+function updateModifiedCount() {
+  const n = captions.filter(c => c.text !== c.originalText).length;
+  const el = document.getElementById('modified-count');
+  el.textContent = n > 0 ? `已修改 ${n} 条` : '';
+  el.style.color = n > 0 ? '#a8e063' : '';
+}
+
+// ─── export ───────────────────────────────────────────────────────────────────
+function exportFile() {
+  if (!originalJson) return;
+
+  // Deep clone original to avoid mutation
+  const output = JSON.parse(rawText);
+
+  // Apply all caption text changes
+  const tracks = output.timelineWidget.timeline.captionTracks;
+  captions.forEach(c => {
+    const cap = tracks[c.trackIndex].captions[c.captionIndex];
+    cap.captionText = c.text;
+    cap.assetInfo.content = c.text;
+    cap.assetInfo.displayName = c.text;
+  });
+
+  const outStr = JSON.stringify(output);
+  const blob = new Blob([outStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  // Insert "_edited" before extension
+  const dot = fileName.lastIndexOf('.');
+  a.download = dot >= 0 ? fileName.slice(0, dot) + '_edited' + fileName.slice(dot) : fileName + '_edited';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('文件已导出');
+}
+
+// ─── particle removal ────────────────────────────────────────────────────────
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const PUNCT = '[，,、；;\\s]';
+
+function applyParticles(text) {
+  if (activeParticles.size === 0) return text;
+  const pats = [...activeParticles].map(p => escapeRegex(p));
+  const pGroup = '(?:' + pats.join('|') + ')';
+
+  let r = text;
+  // case 3: punct + particle(s) + punct  →  keep only the first punct
+  r = r.replace(new RegExp('(' + PUNCT + '+)' + pGroup + '+' + '(' + PUNCT + '+)', 'g'),
+    (_, pre) => pre);
+  // case 1: start of string, particle(s) + optional punct
+  r = r.replace(new RegExp('^' + pGroup + '+' + PUNCT + '*', 'g'), '');
+  // case 2: optional punct + particle(s) at end of string
+  r = r.replace(new RegExp(PUNCT + '*' + pGroup + '+$', 'g'), '');
+  // case 1b: remaining standalone particles
+  r = r.replace(new RegExp(pGroup + '+', 'g'), '');
+  // clean up leading/trailing punct
+  r = r.replace(new RegExp('^' + PUNCT + '+'), '').replace(new RegExp(PUNCT + '+$'), '');
+
+  return r;
+}
+
+function recomputeParticles() {
+  // Recompute text for every caption from originalText
+  captions.forEach(c => {
+    c.text = applyParticles(c.originalText);
+    // Sync into DOM if row exists
+    if (c.row) {
+      const ta = c.row.querySelector('textarea');
+      if (ta) {
+        ta.value = c.text;
+        autoResize(ta);
+        const isDirty = c.text !== c.originalText;
+        ta.classList.toggle('dirty', isDirty);
+        c.row.classList.toggle('modified', isDirty);
+        const revert = c.row.querySelector('.btn-revert');
+        if (revert) revert.hidden = !isDirty;
+      }
+    }
+  });
+  updateModifiedCount();
+}
+
+function syncMasterCheckbox() {
+  const master = document.getElementById('chk-master');
+  const lblMaster = document.getElementById('lbl-master');
+  const allChecked = PARTICLES.every(p => activeParticles.has(p));
+  const noneChecked = activeParticles.size === 0;
+  master.checked = allChecked;
+  master.indeterminate = !allChecked && !noneChecked;
+  lblMaster.classList.toggle('checked', allChecked);
+}
+
+// ─── wire up ─────────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  loadFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('btn-load-new').addEventListener('click', () => {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('drop-zone').style.display = 'flex';
+  originalJson = null; rawText = null; captions = []; fileName = '';
+  document.getElementById('file-info').textContent = '未加载文件';
+});
+
+document.getElementById('btn-reset-all').addEventListener('click', () => {
+  captions.forEach(c => { c.text = applyParticles(c.originalText); });
+  renderTable(document.getElementById('search-input').value);
+  showToast('已撤销所有修改', '#4f7fff');
+});
+
+document.getElementById('btn-export').addEventListener('click', exportFile);
+
+document.getElementById('search-input').addEventListener('input', e => {
+  renderTable(e.target.value);
+});
+
+// particle checkboxes
+document.querySelectorAll('.chk-particle').forEach(chk => {
+  const p = chk.dataset.p;
+  const lbl = document.getElementById('lbl-' + p);
+  chk.addEventListener('change', () => {
+    if (chk.checked) activeParticles.add(p); else activeParticles.delete(p);
+    lbl.classList.toggle('checked', chk.checked);
+    syncMasterCheckbox();
+    recomputeParticles();
+  });
+});
+
+document.getElementById('chk-master').addEventListener('change', e => {
+  const checked = e.target.checked;
+  PARTICLES.forEach(p => {
+    if (checked) activeParticles.add(p); else activeParticles.delete(p);
+    const chk = document.querySelector(`.chk-particle[data-p="${p}"]`);
+    if (chk) chk.checked = checked;
+    const lbl = document.getElementById('lbl-' + p);
+    if (lbl) lbl.classList.toggle('checked', checked);
+  });
+  document.getElementById('lbl-master').classList.toggle('checked', checked);
+  recomputeParticles();
+});
+</script>
+</body>
+</html>
